@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Living LED Panel Project</title>
+
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<link rel="stylesheet" type="text/css" href="css/bootstrap.css">
+	<script type="text/javascript" src="js/jquery-1.7.1.min.js"></script>
+	<script type="text/javascript" src="js/bootstrap.js"></script>
+
+	<link type="text/css" href="css/ui-lightness/jquery-ui-1.8.17.custom.css" rel="stylesheet" />	
+	<script type="text/javascript" src="js/jquery-ui-1.8.17.custom.min.js"></script>
+
+	<script type="text/javascript" src="js/living-lamp.js/"></script>
+	<link rel="stylesheet" type="text/css" href="css/living-lamp.css">
+
+	<script>
+$(function(){
+	var delay = 50;
+
+	var initSize = function() {
+		var xres = parseInt($('#xres').val());
+		if (!(xres > 0 && xres<=64) ) { xres = 3; }
+		$('#xres').val(xres);
+		var yres = parseInt($('#yres').val());
+		if (!(yres > 0 || yres>64) ) { yres = 3; }
+		$('#yres').val(yres);
+		var psize = parseFloat($('#psize').val());
+		if (!(psize >= 4 && psize<=1000) ) { psize = 100; }
+		$('#psize').val(psize);
+		$('#mmsize').text( (xres*psize) + " × " + (yres*psize) + " mm");
+
+		// initialize matrix
+		levels = new Array(xres);
+		for (var x=0;x<xres;x++) { 
+		    levels[x] = new Array(yres);
+		}
+	};
+
+	$.each(['xres','yres','psize'],function(i,value){ 
+		$('#'+value).change(function(){ 
+			initSize();
+			updateSize();
+		});
+	});
+
+	$('#speed').slider({
+		min: 1, max: 500, value: delay,
+		change: function(event, ui) {
+			//$('#llpanel').llpanel("option","delay",ui.value);
+		}
+	});	
+
+	var pwidth;
+	var xres, yres, psize;
+	var canvas = $('<canvas>');
+	var element = $('#lamp');
+	canvas.appendTo(element);
+	canvas = canvas[0];
+	var ctx;
+	var levels;
+
+	var initCanvas = function() {
+		psize = $('#psize').val();
+		xres  = $('#xres').val();
+		yres  = $('#yres').val();
+
+		element.width( canvas.width  = psize * xres );
+		element.height( canvas.height = psize * yres );
+		ctx = canvas.getContext('2d');
+		if (ctx.resize) {
+			ctx.resize( canvas.width, canvas.height );
+		}
+
+		element.resizable({stop: function(event,ui) {
+			ctx.clearRect( 0 , 0 , canvas.width , canvas.height );
+			canvas.width = element.width();
+			canvas.height = element.height();
+			if (ctx.resize) {
+				ctx.resize( canvas.width, canvas.height );
+			}
+			drawMatrix();
+		}, aspectRatio: true, grid: [xres,yres] });
+
+		for (var x=0;x<xres;x++) { 
+		  for (var y=0;y<yres;y++) { 
+			  setPixel(x,y,randomColor());
+		  }
+		}
+	};
+
+	// called if psize, xres, or yres changed
+	var updateSize = function() {
+		psize = $('#psize').val();
+		xres  = $('#xres').val();
+		yres  = $('#yres').val();
+
+		ctx.clearRect( 0, 0, canvas.width, canvas.height );
+		initCanvas();
+	};
+
+	var drawPixel = function(x,y) {
+   	    ctx.fillStyle = color(levels[x][y]);
+		pwidth = canvas.width / xres;
+		pheight = canvas.height / yres;
+    	ctx.fillRect(x*pwidth,y*pheight,pwidth,pheight);
+	};
+
+	var setPixel = function (x,y,c) {
+        levels[x][y] = c;
+		drawPixel(x,y);
+ 	};
+
+	var drawMatrix = function() {
+		for (var x=0;x<xres;x++) { 
+		  for (var y=0;y<yres;y++) { 
+			drawPixel(x,y);
+		  }
+		}
+	};
+
+	var update = function() {
+  			var p = randPos();
+			var intensity = randomColor();
+			fadePixel(p.x, p.y, intensity );
+		//	p = randPos();
+		//	fadePixel(p.x, p.y, 255-intensity );
+	        setTimeout(update,delay);
+	};
+
+    // utility functions
+	var randPos = function() {
+		return { 
+			"x" : Math.floor(Math.random()*xres),
+			"y" : Math.floor(Math.random()*yres)
+		  };
+	};
+
+
+	var fadePixel = function(x,y,c1) {
+	    var c0 = levels[x][y];
+		if (c0 == c1) return;
+
+		var fadeSteps = 10;
+		var fadeCounter = 0;
+		var fadeDuration = 500;
+		var fadeDirection = (c1 > c0) ? 1 : -1;
+		var dist = c1 > c0 ? c1-c0 : c0-c1;
+
+		var interval = setInterval(function(){ 
+			step(); 
+		}, fadeDuration / fadeSteps );
+		var step = function() {
+			if ( ++fadeCounter > fadeSteps ) {
+				clearInterval(interval);
+			}
+			c0 += fadeDirection * (dist / fadeSteps);
+			if (c0 < 0) { c0 = 0; } else if (c0 > 255) { c0 = 255 };
+			setPixel(x,y,c0);
+		};
+//		dist/steps;
+	};
+
+	initSize();
+	initCanvas();
+	update();
+});
+	</script>
+</head>
+<body>
+<div class="container-fluid">
+<h1>Living Lamp <small>project to create an LED panel</small></h1>
+<div class="row-fluid">
+  <div class="span6">
+	<form class="form-inline well">
+		<label>size: </label>
+		<input type="text" class="span1" placeholder="xres" id="xres" name="xres">
+		×
+		<input type="text" class="span1" placeholder="yres" id="yres" name="yres">
+		pixel, each
+		<input type="text" class="span1" placeholder="psize" id="psize" name="psize"> mm =
+		<span id="mmsize"></span>
+	</form>
+  </div>
+  <div class="span6">
+	<form class="form-inline well">
+        <div id="speed" width="100%"></div>
+  	    <div>
+		  speed...
+
+		</div>
+	</form>
+  </div>
+</div>
+<div class="row-fluid">
+  <div id="lamp" style="border:1px solid #666; width:100%"></div>
+</div>
+</div>
+</body>
+</html>
